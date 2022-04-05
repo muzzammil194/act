@@ -20,7 +20,7 @@ var (
 	baseImage = "node:16-buster-slim"
 	platforms map[string]string
 	logLevel  = log.DebugLevel
-	workdir   = "testdata"
+	workdir   = "../testdata"
 )
 
 func init() {
@@ -44,7 +44,7 @@ func init() {
 }
 
 func TestGraphEvent(t *testing.T) {
-	planner, err := model.NewWorkflowPlanner("testdata/basic", true)
+	planner, err := model.NewWorkflowPlanner(filepath.Join(workdir, "basic"), true)
 	assert.Nil(t, err)
 
 	plan := planner.PlanEvent("push")
@@ -173,9 +173,8 @@ func TestRunEvent(t *testing.T) {
 		{workdir, "steps-context/outcome", "push", "", platforms},
 		{workdir, "job-status-check", "push", "job 'fail' failed", platforms},
 		{workdir, "if-expressions", "push", "Job 'mytest' failed", platforms},
-		{"../model/testdata", "strategy", "push", "", platforms}, // TODO: move all testdata into pkg so we can validate it with planner and runner
-		// {"testdata", "issue-228", "push", "", platforms, }, // TODO [igni]: Remove this once everything passes
-		{"../model/testdata", "container-volumes", "push", "", platforms},
+		{workdir, "strategy", "push", "", platforms}, // TODO: move all testdata into pkg so we can validate it with planner and runner
+		{workdir, "container-volumes", "push", "", platforms},
 	}
 
 	for _, table := range tables {
