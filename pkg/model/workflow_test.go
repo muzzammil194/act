@@ -1,55 +1,55 @@
 package model
 
 import (
-    "os"
-    "path/filepath"
-    "strings"
-    "testing"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
 
-    "github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/assert"
 )
 
 var (
-    workdir = "../testdata"
+	workdir = "../testdata"
 )
 
 func init() {
-    if wd, err := filepath.Abs(workdir); err == nil {
-        workdir = wd
-    }
+	if wd, err := filepath.Abs(workdir); err == nil {
+		workdir = wd
+	}
 }
 
 func readWorkflow(t *testing.T, name string) (w *Workflow) {
-    f, err := os.OpenFile(filepath.Join(workdir, name), os.O_RDONLY, 0)
-    if err != nil {
-        assert.NoError(t, err, "file open should succeed")
-    }
+	f, err := os.OpenFile(filepath.Join(workdir, name), os.O_RDONLY, 0)
+	if err != nil {
+		assert.NoError(t, err, "file open should succeed")
+	}
 
-    w, err = ReadWorkflow(f)
-    if err != nil {
-        assert.NoError(t, err, "read workflow should succeed")
-    }
+	w, err = ReadWorkflow(f)
+	if err != nil {
+		assert.NoError(t, err, "read workflow should succeed")
+	}
 
-    return w
+	return w
 }
 
 func TestReadWorkflow_StringEvent(t *testing.T) {
-    workflow := readWorkflow(t, "local-action-docker-url/push.yml")
+	workflow := readWorkflow(t, "local-action-docker-url/push.yml")
 
-    assert.Len(t, workflow.On(), 1)
-    assert.Contains(t, workflow.On(), "push")
+	assert.Len(t, workflow.On(), 1)
+	assert.Contains(t, workflow.On(), "push")
 }
 
 func TestReadWorkflow_ListEvent(t *testing.T) {
-    workflow := readWorkflow(t, "basic/push.yml")
+	workflow := readWorkflow(t, "basic/push.yml")
 
-    assert.Len(t, workflow.On(), 2)
-    assert.Contains(t, workflow.On(), "push")
-    assert.Contains(t, workflow.On(), "pull_request")
+	assert.Len(t, workflow.On(), 2)
+	assert.Contains(t, workflow.On(), "push")
+	assert.Contains(t, workflow.On(), "pull_request")
 }
 
 func TestReadWorkflow_MapEvent(t *testing.T) {
-    yaml := `
+	yaml := `
 name: local-action-docker-url
 on:
   push:
@@ -66,45 +66,45 @@ jobs:
     - uses: ./actions/docker-url
 `
 
-    workflow, err := ReadWorkflow(strings.NewReader(yaml))
-    assert.NoError(t, err, "read workflow should succeed")
-    assert.Len(t, workflow.On(), 2)
-    assert.Contains(t, workflow.On(), "push")
-    assert.Contains(t, workflow.On(), "pull_request")
+	workflow, err := ReadWorkflow(strings.NewReader(yaml))
+	assert.NoError(t, err, "read workflow should succeed")
+	assert.Len(t, workflow.On(), 2)
+	assert.Contains(t, workflow.On(), "push")
+	assert.Contains(t, workflow.On(), "pull_request")
 }
 
 func TestReadWorkflow_StringContainer(t *testing.T) {
-    //	yaml := `
-    //name: local-action-docker-url
-    //
-    //jobs:
-    //  test:
-    //    container: nginx:latest
-    //    runs-on: ubuntu-latest
-    //    steps:
-    //    - uses: ./actions/docker-url
-    //  test2:
-    //    container:
-    //      image: nginx:latest
-    //      env:
-    //        foo: bar
-    //    runs-on: ubuntu-latest
-    //    steps:
-    //    - uses: ./actions/docker-url
-    //`
+	//	yaml := `
+	//name: local-action-docker-url
+	//
+	//jobs:
+	//  test:
+	//    container: nginx:latest
+	//    runs-on: ubuntu-latest
+	//    steps:
+	//    - uses: ./actions/docker-url
+	//  test2:
+	//    container:
+	//      image: nginx:latest
+	//      env:
+	//        foo: bar
+	//    runs-on: ubuntu-latest
+	//    steps:
+	//    - uses: ./actions/docker-url
+	//`
 
-    w := readWorkflow(t, "job-container/push.yml")
+	w := readWorkflow(t, "job-container/push.yml")
 
-    assert.Len(t, w.Jobs, 2)
-    assert.Contains(t, w.Jobs["test"].Container().Image, "node:16-buster-slim")
-    assert.Contains(t, w.Jobs["test"].Container().Env["TEST_ENV"], "test-value")
+	assert.Len(t, w.Jobs, 2)
+	assert.Contains(t, w.Jobs["test"].Container().Image, "node:16-buster-slim")
+	assert.Contains(t, w.Jobs["test"].Container().Env["TEST_ENV"], "test-value")
 
-    assert.Contains(t, w.Jobs["test2"].Container().Image, "node:16-buster-slim")
-    assert.Contains(t, w.Jobs["test2"].Steps[0].Environment()["TEST_ENV"], "test-value")
+	assert.Contains(t, w.Jobs["test2"].Container().Image, "node:16-buster-slim")
+	assert.Contains(t, w.Jobs["test2"].Steps[0].Environment()["TEST_ENV"], "test-value")
 }
 
 func TestReadWorkflow_ObjectContainer(t *testing.T) {
-    yaml := `
+	yaml := `
 name: local-action-docker-url
 
 jobs:
@@ -125,25 +125,25 @@ jobs:
     - uses: ./actions/docker-url
 `
 
-    workflow, err := ReadWorkflow(strings.NewReader(yaml))
-    assert.NoError(t, err, "read workflow should succeed")
-    assert.Len(t, workflow.Jobs, 1)
+	workflow, err := ReadWorkflow(strings.NewReader(yaml))
+	assert.NoError(t, err, "read workflow should succeed")
+	assert.Len(t, workflow.Jobs, 1)
 
-    container := workflow.GetJob("test").Container()
+	container := workflow.GetJob("test").Container()
 
-    assert.Contains(t, container.Image, "r.example.org/something:latest")
-    assert.Contains(t, container.Env["HOME"], "/home/user")
-    assert.Contains(t, container.Credentials["username"], "registry-username")
-    assert.Contains(t, container.Credentials["password"], "registry-password")
-    assert.ElementsMatch(t, container.Volumes, []string{
-        "my_docker_volume:/volume_mount",
-        "/data/my_data",
-        "/source/directory:/destination/directory",
-    })
+	assert.Contains(t, container.Image, "r.example.org/something:latest")
+	assert.Contains(t, container.Env["HOME"], "/home/user")
+	assert.Contains(t, container.Credentials["username"], "registry-username")
+	assert.Contains(t, container.Credentials["password"], "registry-password")
+	assert.ElementsMatch(t, container.Volumes, []string{
+		"my_docker_volume:/volume_mount",
+		"/data/my_data",
+		"/source/directory:/destination/directory",
+	})
 }
 
 func TestReadWorkflow_StepsTypes(t *testing.T) {
-    yaml := `
+	yaml := `
 name: invalid step definition
 
 jobs:
@@ -163,130 +163,136 @@ jobs:
         uses: ./local-action
 `
 
-    workflow, err := ReadWorkflow(strings.NewReader(yaml))
-    assert.NoError(t, err, "read workflow should succeed")
-    assert.Len(t, workflow.Jobs, 1)
-    assert.Len(t, workflow.Jobs["test"].Steps, 5)
-    assert.Equal(t, workflow.Jobs["test"].Steps[0].Type(), StepTypeInvalid)
-    assert.Equal(t, workflow.Jobs["test"].Steps[1].Type(), StepTypeRun)
-    assert.Equal(t, workflow.Jobs["test"].Steps[2].Type(), StepTypeUsesActionRemote)
-    assert.Equal(t, workflow.Jobs["test"].Steps[3].Type(), StepTypeUsesDockerURL)
-    assert.Equal(t, workflow.Jobs["test"].Steps[4].Type(), StepTypeUsesActionLocal)
+	workflow, err := ReadWorkflow(strings.NewReader(yaml))
+	assert.NoError(t, err, "read workflow should succeed")
+	assert.Len(t, workflow.Jobs, 1)
+	assert.Len(t, workflow.Jobs["test"].Steps, 5)
+	assert.Equal(t, workflow.Jobs["test"].Steps[0].Type(), StepTypeInvalid)
+	assert.Equal(t, workflow.Jobs["test"].Steps[1].Type(), StepTypeRun)
+	assert.Equal(t, workflow.Jobs["test"].Steps[2].Type(), StepTypeUsesActionRemote)
+	assert.Equal(t, workflow.Jobs["test"].Steps[3].Type(), StepTypeUsesDockerURL)
+	assert.Equal(t, workflow.Jobs["test"].Steps[4].Type(), StepTypeUsesActionLocal)
 }
 
 // See: https://docs.github.com/en/actions/reference/workflow-syntax-for-github-actions#jobsjob_idoutputs
 func TestReadWorkflow_JobOutputs(t *testing.T) {
-    yaml := `
-name: job outputs definition
+	//	yaml := `
+	//name: job outputs definition
+	//
+	//jobs:
+	//  test1:
+	//    runs-on: ubuntu-latest
+	//    steps:
+	//      - id: test1_1
+	//        run: |
+	//          echo "::set-output name=a_key::some-a_value"
+	//          echo "::set-output name=b-key::some-b-value"
+	//    outputs:
+	//      some_a_key: ${{ steps.test1_1.outputs.a_key }}
+	//      some-b-key: ${{ steps.test1_1.outputs.b-key }}
+	//
+	//  test2:
+	//    runs-on: ubuntu-latest
+	//    needs:
+	//      - test1
+	//    steps:
+	//      - name: test2_1
+	//        run: |
+	//          echo "${{ needs.test1.outputs.some_a_key }}"
+	//          echo "${{ needs.test1.outputs.some-b-key }}"
+	//`
 
-jobs:
-  test1:
-    runs-on: ubuntu-latest
-    steps:
-      - id: test1_1
-        run: |
-          echo "::set-output name=a_key::some-a_value"
-          echo "::set-output name=b-key::some-b-value"
-    outputs:
-      some_a_key: ${{ steps.test1_1.outputs.a_key }}
-      some-b-key: ${{ steps.test1_1.outputs.b-key }}
+	w := readWorkflow(t, "outputs/push.yml")
 
-  test2:
-    runs-on: ubuntu-latest
-    needs:
-      - test1
-    steps:
-      - name: test2_1
-        run: |
-          echo "${{ needs.test1.outputs.some_a_key }}"
-          echo "${{ needs.test1.outputs.some-b-key }}"
-`
+	assert.Len(t, w.Jobs, 2)
 
-    workflow, err := ReadWorkflow(strings.NewReader(yaml))
-    assert.NoError(t, err, "read workflow should succeed")
-    assert.Len(t, workflow.Jobs, 2)
+	j := w.Jobs["build_output"]
+	assert.Len(t, j.Steps, 3)
+	assert.Equal(t, StepTypeRun, j.Steps[0].Type())
+	assert.Equal(t, "set_1", j.Steps[0].ID)
+	assert.Equal(t, "set_2", j.Steps[1].ID)
+	assert.Equal(t, "set_3", j.Steps[2].ID)
 
-    assert.Len(t, workflow.Jobs["test1"].Steps, 1)
-    assert.Equal(t, StepTypeRun, workflow.Jobs["test1"].Steps[0].Type())
-    assert.Equal(t, "test1_1", workflow.Jobs["test1"].Steps[0].ID)
-    assert.Len(t, workflow.Jobs["test1"].Outputs, 2)
-    assert.Contains(t, workflow.Jobs["test1"].Outputs, "some_a_key")
-    assert.Contains(t, workflow.Jobs["test1"].Outputs, "some-b-key")
-    assert.Equal(t, "${{ steps.test1_1.outputs.a_key }}", workflow.Jobs["test1"].Outputs["some_a_key"])
-    assert.Equal(t, "${{ steps.test1_1.outputs.b-key }}", workflow.Jobs["test1"].Outputs["some-b-key"])
+	assert.Len(t, j.Outputs, 4)
+	assert.Equal(t, map[string]string{
+		"variable_1": "${{ steps.set_1.outputs.var_1 }}",
+		"variable_2": "${{ steps.set_1.outputs.var_2 }}",
+		"variable_3": "${{ steps.set_2.outputs.var_3 }}",
+		"variable_4": "${{ steps.set_3.outputs.var_4 }}",
+	}, j.Outputs)
 }
 
 func TestReadWorkflow_Strategy(t *testing.T) {
-    w, err := NewWorkflowPlanner(filepath.Join(workdir, "strategy/push.yml"), true)
-    assert.NoError(t, err)
+	w, err := NewWorkflowPlanner(filepath.Join(workdir, "strategy/push.yml"), true)
+	assert.NoError(t, err)
 
-    p := w.PlanJob("strategy-only-max-parallel")
+	p := w.PlanJob("strategy-only-max-parallel")
 
-    assert.Equal(t, len(p.Stages), 1)
-    assert.Equal(t, len(p.Stages[0].Runs), 1)
+	assert.Equal(t, len(p.Stages), 1)
+	assert.Equal(t, len(p.Stages[0].Runs), 1)
 
-    wf := p.Stages[0].Runs[0].Workflow
+	wf := p.Stages[0].Runs[0].Workflow
 
-    job := wf.Jobs["strategy-only-max-parallel"]
-    assert.Equal(t, job.GetMatrixes(), []map[string]interface{}{{}})
-    assert.Equal(t, job.Matrix(), map[string][]interface{}(nil))
-    assert.Equal(t, job.Strategy.MaxParallel, 2)
-    assert.Equal(t, job.Strategy.FailFast, true)
+	job := wf.Jobs["strategy-only-max-parallel"]
+	assert.Equal(t, job.GetMatrixes(), []map[string]interface{}{{}})
+	assert.Equal(t, job.Matrix(), map[string][]interface{}(nil))
+	assert.Equal(t, job.Strategy.MaxParallel, 2)
+	assert.Equal(t, job.Strategy.FailFast, true)
 
-    job = wf.Jobs["strategy-only-fail-fast"]
-    assert.Equal(t, job.GetMatrixes(), []map[string]interface{}{{}})
-    assert.Equal(t, job.Matrix(), map[string][]interface{}(nil))
-    assert.Equal(t, job.Strategy.MaxParallel, 4)
-    assert.Equal(t, job.Strategy.FailFast, false)
+	job = wf.Jobs["strategy-only-fail-fast"]
+	assert.Equal(t, job.GetMatrixes(), []map[string]interface{}{{}})
+	assert.Equal(t, job.Matrix(), map[string][]interface{}(nil))
+	assert.Equal(t, job.Strategy.MaxParallel, 4)
+	assert.Equal(t, job.Strategy.FailFast, false)
 
-    job = wf.Jobs["strategy-no-matrix"]
-    assert.Equal(t, job.GetMatrixes(), []map[string]interface{}{{}})
-    assert.Equal(t, job.Matrix(), map[string][]interface{}(nil))
-    assert.Equal(t, job.Strategy.MaxParallel, 2)
-    assert.Equal(t, job.Strategy.FailFast, false)
+	job = wf.Jobs["strategy-no-matrix"]
+	assert.Equal(t, job.GetMatrixes(), []map[string]interface{}{{}})
+	assert.Equal(t, job.Matrix(), map[string][]interface{}(nil))
+	assert.Equal(t, job.Strategy.MaxParallel, 2)
+	assert.Equal(t, job.Strategy.FailFast, false)
 
-    job = wf.Jobs["strategy-all"]
-    assert.Equal(t, job.GetMatrixes(),
-        []map[string]interface{}{
-            {"datacenter": "site-c", "node-version": "14.x", "site": "staging"},
-            {"datacenter": "site-c", "node-version": "16.x", "site": "staging"},
-            {"datacenter": "site-d", "node-version": "16.x", "site": "staging"},
-            {"datacenter": "site-a", "node-version": "10.x", "site": "prod"},
-            {"datacenter": "site-b", "node-version": "12.x", "site": "dev"},
-        },
-    )
-    assert.Equal(t, job.Matrix(),
-        map[string][]interface{}{
-            "datacenter": {"site-c", "site-d"},
-            "exclude": {
-                map[string]interface{}{"datacenter": "site-d", "node-version": "14.x", "site": "staging"},
-            },
-            "include": {
-                map[string]interface{}{"php-version": 5.4},
-                map[string]interface{}{"datacenter": "site-a", "node-version": "10.x", "site": "prod"},
-                map[string]interface{}{"datacenter": "site-b", "node-version": "12.x", "site": "dev"},
-            },
-            "node-version": {"14.x", "16.x"},
-            "site":         {"staging"},
-        },
-    )
-    assert.Equal(t, job.Strategy.MaxParallel, 2)
-    assert.Equal(t, job.Strategy.FailFast, false)
+	job = wf.Jobs["strategy-all"]
+	assert.Equal(t, job.GetMatrixes(),
+		[]map[string]interface{}{
+			{"datacenter": "site-c", "node-version": "14.x", "site": "staging"},
+			{"datacenter": "site-c", "node-version": "16.x", "site": "staging"},
+			{"datacenter": "site-d", "node-version": "16.x", "site": "staging"},
+			{"datacenter": "site-a", "node-version": "10.x", "site": "prod"},
+			{"datacenter": "site-b", "node-version": "12.x", "site": "dev"},
+		},
+	)
+	assert.Equal(t, job.Matrix(),
+		map[string][]interface{}{
+			"datacenter": {"site-c", "site-d"},
+			"exclude": {
+				map[string]interface{}{"datacenter": "site-d", "node-version": "14.x", "site": "staging"},
+			},
+			"include": {
+				map[string]interface{}{"php-version": 5.4},
+				map[string]interface{}{"datacenter": "site-a", "node-version": "10.x", "site": "prod"},
+				map[string]interface{}{"datacenter": "site-b", "node-version": "12.x", "site": "dev"},
+			},
+			"node-version": {"14.x", "16.x"},
+			"site":         {"staging"},
+		},
+	)
+	assert.Equal(t, job.Strategy.MaxParallel, 2)
+	assert.Equal(t, job.Strategy.FailFast, false)
 }
 
 func TestStep_ShellCommand(t *testing.T) {
-    tests := []struct {
-        shell string
-        want  string
-    }{
-        {"pwsh -v '. {0}'", "pwsh -v '. {0}'"},
-        {"pwsh", "pwsh -command . '{0}'"},
-        {"powershell", "powershell -command . '{0}'"},
-    }
-    for _, tt := range tests {
-        t.Run(tt.shell, func(t *testing.T) {
-            got := (&Step{Shell: tt.shell}).ShellCommand()
-            assert.Equal(t, got, tt.want)
-        })
-    }
+	tests := []struct {
+		shell string
+		want  string
+	}{
+		{"pwsh -v '. {0}'", "pwsh -v '. {0}'"},
+		{"pwsh", "pwsh -command . '{0}'"},
+		{"powershell", "powershell -command . '{0}'"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.shell, func(t *testing.T) {
+			got := (&Step{Shell: tt.shell}).ShellCommand()
+			assert.Equal(t, got, tt.want)
+		})
+	}
 }
