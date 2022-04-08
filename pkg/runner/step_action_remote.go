@@ -85,6 +85,10 @@ func (sar *stepActionRemote) pre() common.Executor {
 				},
 			)(ctx)
 		},
+		func(ctx context.Context) error {
+			sar.RunContext.setupActionInputs(sar)
+			return nil
+		},
 		runStepExecutor(sar, stepStagePre, runPreStep(sar)).If(hasPreStep(sar)).If(shouldRunPreStep(sar)))
 }
 

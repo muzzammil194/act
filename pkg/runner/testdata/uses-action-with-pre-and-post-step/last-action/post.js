@@ -2,7 +2,7 @@ const pre = process.env['ACTION_OUTPUT_PRE'];
 const main = process.env['ACTION_OUTPUT_MAIN'];
 const post = process.env['ACTION_OUTPUT_POST'];
 
-console.log({env: process.env, pre, main, post});
+console.log({pre, main, post});
 
 if (pre !== 'pre') {
   throw new Error(`Expected 'pre' but got '${pre}'`);

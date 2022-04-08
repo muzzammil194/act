@@ -55,6 +55,7 @@ func (sal *stepActionLocal) pre() common.Executor {
 		// run local pre step only for composite actions, to allow to run
 		// inside pre steps
 		if sal.action.Runs.Using == model.ActionRunsUsingComposite {
+			sal.RunContext.setupActionInputs(sal)
 			return runStepExecutor(sal, stepStagePre, runPreStep(sal)).If(hasPreStep(sal)).If(shouldRunPreStep(sal))(ctx)
 		}
 

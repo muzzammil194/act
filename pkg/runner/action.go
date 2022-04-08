@@ -372,6 +372,29 @@ func newStepContainer(ctx context.Context, step step, image string, cmd []string
 	return stepContainer
 }
 
+func (rc *RunContext) setupActionInputs(step actionStep) {
+	if step.getActionModel() == nil {
+		// e.g. local checkout skip has no action model
+		return
+	}
+
+	stepModel := step.getStepModel()
+	action := step.getActionModel()
+
+	eval := rc.NewExpressionEvaluator()
+	inputs := make(map[string]interface{})
+	for k, input := range action.Inputs {
+		inputs[k] = eval.Interpolate(input.Default)
+	}
+	if stepModel.With != nil {
+		for k, v := range stepModel.With {
+			inputs[k] = eval.Interpolate(v)
+		}
+	}
+
+	rc.Inputs = inputs
+}
+
 func populateEnvsFromSavedState(env *map[string]string, step actionStep, rc *RunContext) {
 	stepResult := rc.StepResults[step.getStepModel().ID]
 	if stepResult != nil {
