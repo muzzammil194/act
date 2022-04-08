@@ -82,8 +82,10 @@ func TestStepActionLocalTest(t *testing.T) {
 		return nil
 	})
 
-	err := sal.main()(ctx)
+	err := sal.pre()(ctx)
+	assert.Nil(t, err)
 
+	err = sal.main()(ctx)
 	assert.Nil(t, err)
 
 	cm.AssertExpectations(t)
