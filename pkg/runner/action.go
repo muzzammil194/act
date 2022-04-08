@@ -424,6 +424,74 @@ func getOsSafeRelativePath(s, prefix string) string {
 	return actionName
 }
 
+func shouldRunPreStep(step actionStep) common.Conditional {
+	return func(ctx context.Context) bool {
+		log := common.Logger(ctx)
+
+		if step.getActionModel() == nil {
+			log.Debugf("skip pre step for '%s': no action model available", step.getStepModel())
+			return false
+		}
+
+		return true
+	}
+}
+
+func hasPreStep(step actionStep) common.Conditional {
+	return func(ctx context.Context) bool {
+		action := step.getActionModel()
+		return action.Runs.Using == model.ActionRunsUsingComposite ||
+			((action.Runs.Using == model.ActionRunsUsingNode12 ||
+				action.Runs.Using == model.ActionRunsUsingNode16) &&
+				action.Runs.Pre != "")
+	}
+}
+
+func runPreStep(step actionStep) common.Executor {
+	return func(ctx context.Context) error {
+		common.Logger(ctx).Debugf("run pre step for '%s'", step.getStepModel())
+
+		rc := step.getRunContext()
+		stepModel := step.getStepModel()
+		action := step.getActionModel()
+
+		switch action.Runs.Using {
+		case model.ActionRunsUsingNode12, model.ActionRunsUsingNode16:
+			// todo: refactor into step
+			var actionDir string
+			var actionPath string
+			if _, ok := step.(*stepActionRemote); ok {
+				actionPath = newRemoteAction(stepModel.Uses).Path
+				actionDir = fmt.Sprintf("%s/%s", rc.ActionCacheDir(), strings.ReplaceAll(stepModel.Uses, "/", "-"))
+			} else {
+				actionDir = filepath.Join(rc.Config.Workdir, stepModel.Uses)
+				actionPath = ""
+			}
+
+			actionLocation := ""
+			if actionPath != "" {
+				actionLocation = path.Join(actionDir, actionPath)
+			} else {
+				actionLocation = actionDir
+			}
+
+			_, containerActionDir := getContainerActionPaths(stepModel, actionLocation, rc)
+
+			containerArgs := []string{"node", path.Join(containerActionDir, action.Runs.Pre)}
+			log.Debugf("executing remote job container: %s", containerArgs)
+
+			return rc.execJobContainer(containerArgs, *step.getEnv(), "", "")(ctx)
+
+		case model.ActionRunsUsingComposite:
+			step.getCompositeRunContext().updateCompositeRunContext(step.getRunContext(), step)
+			return step.getCompositeSteps().pre(ctx)
+
+		default:
+			return nil
+		}
+	}
+}
+
 func shouldRunPostStep(step actionStep) common.Conditional {
 	return func(ctx context.Context) bool {
 		log := common.Logger(ctx)
